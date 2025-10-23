@@ -18,7 +18,8 @@ import {initializeExecutionBuilder, initializeExecutionEngine} from "../executio
 import {HttpMetricsServer, Metrics, createMetrics, getHttpMetricsServer} from "../metrics/index.js";
 import {MonitoringService} from "../monitoring/index.js";
 import {Network, getReqRespHandlers} from "../network/index.js";
-import {BackfillSync} from "../sync/backfill/index.js";
+import {BackfillSync} from "../sync/backfill/v2/backfillV2.js";
+import {BackfillSyncWorkerHandler} from "../sync/backfill/v2/backfillWorkerHandler.js";
 import {BeaconSync, IBeaconSync} from "../sync/index.js";
 import {Clock} from "../util/clock.js";
 import {runNodeNotifier} from "./notifier.js";
@@ -36,7 +37,7 @@ export type BeaconNodeModules = {
   chain: IBeaconChain;
   api: BeaconApiMethods;
   sync: IBeaconSync;
-  backfillSync: BackfillSync | null;
+  backfillSync: BackfillSync | BackfillSyncWorkerHandler | null;
   metricsServer: HttpMetricsServer | null;
   monitoring: MonitoringService | null;
   restApi?: BeaconRestApiServer;
@@ -101,7 +102,7 @@ export class BeaconNode {
   api: BeaconApiMethods;
   restApi?: BeaconRestApiServer;
   sync: IBeaconSync;
-  backfillSync: BackfillSync | null;
+  backfillSync: BackfillSync | BackfillSyncWorkerHandler | null;
 
   status: BeaconNodeStatus;
   private controller?: AbortController;
@@ -261,19 +262,41 @@ export class BeaconNode {
       logger: logger.child({module: LoggerModule.sync}),
     });
 
+    const runBackfillWorker = true;
+
+    // pass configs to backfillWorkerHandler
     const backfillSync =
       opts.sync.backfillBatchSize > 0
-        ? await BackfillSync.init(opts.sync, {
-            config,
-            db,
-            chain,
-            metrics,
-            network,
-            wsCheckpoint,
-            anchorState,
-            logger: logger.child({module: LoggerModule.backfill}),
-            signal,
-          })
+        ? runBackfillWorker
+          ? // null
+            await BackfillSyncWorkerHandler.init(
+              opts.sync
+              //   {
+              //   config,
+              //   db,
+              //   chain,
+              //   metrics,
+              //   network,
+              //   wsCheckpoint,
+              //   anchorState,
+              //   logger: logger.child({module: LoggerModule.backfill}),
+              //   signal,
+              // }
+            )
+          : await BackfillSync.init(
+              opts.sync
+              // {
+              //   config,
+              //   db,
+              //   chain,
+              //   metrics,
+              //   network,
+              //   wsCheckpoint,
+              //   anchorState,
+              //   logger: logger.child({module: LoggerModule.backfill}),
+              //   signal,
+              // }
+            )
         : null;
 
     const api = getApi(opts.api, {

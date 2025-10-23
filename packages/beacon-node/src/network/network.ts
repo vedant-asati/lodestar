@@ -1,3 +1,4 @@
+import {BroadcastChannel} from "node:worker_threads";
 import {PeerId, PrivateKey} from "@libp2p/interface";
 import {peerIdFromPrivateKey} from "@libp2p/peer-id";
 import {PeerScoreStatsDump} from "@chainsafe/libp2p-gossipsub/score";
@@ -107,6 +108,8 @@ export class Network implements INetwork {
   // Used only for sleep() statements
   private readonly controller: AbortController;
 
+  private readonly bc: BroadcastChannel;
+
   // TODO: Review
   private readonly networkProcessor: NetworkProcessor;
   private readonly core: INetworkCore;
@@ -128,8 +131,28 @@ export class Network implements INetwork {
     this.core = modules.core;
     this.aggregatorTracker = modules.aggregatorTracker;
 
-    this.events.on(NetworkEvent.peerConnected, this.onPeerConnected);
-    this.events.on(NetworkEvent.peerDisconnected, this.onPeerDisconnected);
+    this.bc = new BroadcastChannel("test_channel");
+
+    // this.events.on(NetworkEvent.peerConnected, this.onPeerConnected);
+    // this.events.on(NetworkEvent.peerDisconnected, this.onPeerDisconnected);
+    this.bc.onmessage = (event) => {
+      // // biome-ignore lint/suspicious/noConsole: testing
+      // console.log("It works from network.ts", event.data);
+      switch (event.data.event) {
+        case NetworkEvent.peerConnected:
+          // // biome-ignore lint/suspicious/noConsole: testing
+          // console.log("NetworkEvent.peerConnected: ", event?.data?.message?.peer!);
+          this.onPeerConnected(event.data.message as NetworkEventData[NetworkEvent.peerConnected]);
+          break;
+        case NetworkEvent.peerDisconnected:
+          // // biome-ignore lint/suspicious/noConsole: testing
+          // console.log("NetworkEvent.peerDisconnected: ", event?.data?.message?.peer!);
+          this.onPeerDisconnected(event.data.message as NetworkEventData[NetworkEvent.peerDisconnected]);
+          break;
+        default:
+        // do nothing
+      }
+    };
     this.chain.emitter.on(routes.events.EventType.head, this.onHead);
     this.chain.emitter.on(routes.events.EventType.lightClientFinalityUpdate, ({data}) =>
       this.onLightClientFinalityUpdate(data)
@@ -229,8 +252,9 @@ export class Network implements INetwork {
   async close(): Promise<void> {
     if (this.closed) return;
 
-    this.events.off(NetworkEvent.peerConnected, this.onPeerConnected);
-    this.events.off(NetworkEvent.peerDisconnected, this.onPeerDisconnected);
+    // this.events.off(NetworkEvent.peerConnected, this.onPeerConnected);
+    // this.events.off(NetworkEvent.peerDisconnected, this.onPeerDisconnected);
+    this.bc.close();
     this.chain.emitter.off(routes.events.EventType.head, this.onHead);
     this.chain.emitter.off(routes.events.EventType.lightClientFinalityUpdate, this.onLightClientFinalityUpdate);
     this.chain.emitter.off(routes.events.EventType.lightClientOptimisticUpdate, this.onLightClientOptimisticUpdate);

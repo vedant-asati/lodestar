@@ -1,3 +1,4 @@
+import {BroadcastChannel} from "node:worker_threads";
 import {SLOTS_PER_EPOCH} from "@lodestar/params";
 import {Slot} from "@lodestar/types";
 import {Logger} from "@lodestar/utils";
@@ -22,6 +23,8 @@ export class BeaconSync implements IBeaconSync {
   private readonly metrics: Metrics | null;
   private readonly opts: SyncOptions;
 
+  private readonly bc: BroadcastChannel;
+
   private readonly rangeSync: RangeSync;
   private readonly unknownBlockSync: BlockInputSync;
 
@@ -40,13 +43,35 @@ export class BeaconSync implements IBeaconSync {
     this.unknownBlockSync = new BlockInputSync(config, network, chain, logger, metrics, opts);
     this.slotImportTolerance = opts.slotImportTolerance ?? SLOTS_PER_EPOCH;
 
+    this.bc = new BroadcastChannel("test_channel");
+    // // biome-ignore lint/suspicious/noConsole: jsr test
+    // console.log("Created BroadcastChannel: sync.constructor.\n", this.bc);
+
     // Subscribe to RangeSync completing a SyncChain and recompute sync state
     if (!opts.disableRangeSync) {
       // prod code
       this.logger.debug("RangeSync enabled.");
       this.rangeSync.on(RangeSyncEvent.completedChain, this.updateSyncState);
-      this.network.events.on(NetworkEvent.peerConnected, this.addPeer);
-      this.network.events.on(NetworkEvent.peerDisconnected, this.removePeer);
+      // this.network.events.on(NetworkEvent.peerConnected, this.addPeer);
+      // this.network.events.on(NetworkEvent.peerDisconnected, this.removePeer);
+      this.bc.onmessage = (event) => {
+        // // biome-ignore lint/suspicious/noConsole: testing
+        // console.log("JSR. It works from sync.ts", event.data);
+        switch (event.data.event) {
+          case NetworkEvent.peerConnected:
+            // // biome-ignore lint/suspicious/noConsole: testing
+            // console.log("JSR. NetworkEvent.peerConnected: ", event?.data?.message?.peer!);
+            this.addPeer(event.data.message as NetworkEventData[NetworkEvent.peerConnected]);
+            break;
+          case NetworkEvent.peerDisconnected:
+            // // biome-ignore lint/suspicious/noConsole: testing
+            // console.log("JSR. NetworkEvent.peerDisconnected: ", event?.data?.message?.peer!);
+            this.removePeer(event.data.message as NetworkEventData[NetworkEvent.peerDisconnected]);
+            break;
+          default:
+          // do nothing
+        }
+      };
       this.chain.clock.on(ClockEvent.epoch, this.onClockEpoch);
     } else {
       // test code, this is needed for Unknown block sync sim test
@@ -78,8 +103,9 @@ export class BeaconSync implements IBeaconSync {
   }
 
   close(): void {
-    this.network.events.off(NetworkEvent.peerConnected, this.addPeer);
-    this.network.events.off(NetworkEvent.peerDisconnected, this.removePeer);
+    // this.network.events.off(NetworkEvent.peerConnected, this.addPeer);
+    // this.network.events.off(NetworkEvent.peerDisconnected, this.removePeer);
+    this.bc.close();
     this.chain.clock.off(ClockEvent.epoch, this.onClockEpoch);
     this.rangeSync.close();
     this.unknownBlockSync.close();

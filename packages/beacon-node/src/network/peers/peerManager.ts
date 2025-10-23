@@ -1,3 +1,4 @@
+import {BroadcastChannel} from "node:worker_threads";
 import {Connection, PeerId, PrivateKey} from "@libp2p/interface";
 import {BitArray} from "@chainsafe/ssz";
 import {BeaconConfig} from "@lodestar/config";
@@ -156,6 +157,7 @@ export class PeerManager {
   /** If null, discovery is disabled */
   private readonly discovery: PeerDiscovery | null;
   private readonly networkEventBus: INetworkEventBus;
+  private readonly bc: BroadcastChannel;
   private readonly statusCache: StatusCache;
   private lastStatus: Status;
 
@@ -180,6 +182,7 @@ export class PeerManager {
     this.config = networkConfig.config;
     this.peerRpcScores = modules.peerRpcScores;
     this.networkEventBus = modules.events;
+    this.bc = new BroadcastChannel("test_channel");
     this.connectedPeers = modules.peersData.connectedPeers;
     this.opts = opts;
     this.discovery = discovery;
@@ -193,6 +196,20 @@ export class PeerManager {
     this.libp2p.services.components.events.addEventListener(Libp2pEvent.connectionOpen, this.onLibp2pPeerConnect);
     this.libp2p.services.components.events.addEventListener(Libp2pEvent.connectionClose, this.onLibp2pPeerDisconnect);
     this.networkEventBus.on(NetworkEvent.reqRespRequest, this.onRequest);
+    // this.bc.onmessage = (msg) => {
+    //   // biome-ignore lint/suspicious/noConsole: testing
+    //   console.log("this.bc.onmessage from peerManager.\n msg.data: ", msg.data);
+    //   // wrong
+    //   // const message = msg?.data?.message as NetworkEventData[NetworkEvent.peerConnected];
+    //   // this.logger.info("this.bc.onmessage: ", {
+    //   //   // biome-ignore lint/style/noNonNullAssertion: testing
+    //   //   event: msg?.data?.event!,
+    //   //   peer: message.peer,
+    //   //   headSlot: message.status.headSlot,
+    //   //   clientAgent: message.clientAgent,
+    //   //   custodyColumnsLength: message.custodyColumns.length,
+    //   // });
+    // };
 
     this.lastStatus = this.statusCache.get();
 
@@ -229,6 +246,7 @@ export class PeerManager {
       this.onLibp2pPeerDisconnect
     );
     this.networkEventBus.off(NetworkEvent.reqRespRequest, this.onRequest);
+    this.bc.close();
     for (const interval of this.intervals) clearInterval(interval);
   }
 
@@ -471,6 +489,15 @@ export class PeerManager {
         status,
         clientAgent,
         custodyColumns,
+      });
+      this.bc.postMessage({
+        event: NetworkEvent.peerConnected,
+        message: {
+          peer: peer.toString(),
+          status,
+          clientAgent,
+          custodyColumns,
+        },
       });
     }
   }
@@ -793,6 +820,7 @@ export class PeerManager {
 
     this.logger.verbose(logMessage, logContext);
     this.networkEventBus.emit(NetworkEvent.peerDisconnected, {peer: peerIdStr});
+    this.bc.postMessage({event: NetworkEvent.peerDisconnected, message: {peer: peerIdStr}});
     this.metrics?.peerDisconnectedEvent.inc({direction});
     this.libp2p.peerStore
       .merge(remotePeer, {tags: {[PEER_RELEVANT_TAG]: undefined}})
