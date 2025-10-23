@@ -74,7 +74,6 @@ type BackFillSyncAnchor =
   | {anchorBlock: null; anchorBlockRoot: Root; anchorSlot: Slot; lastBackSyncedBlock: null}
   | {anchorBlock: null; anchorBlockRoot: null; anchorSlot: null; lastBackSyncedBlock: null};
 
-// init this class from worker
 export class BackfillSync extends (EventEmitter as {new (): BackfillSyncEmitter}) {
   syncAnchor: BackFillSyncAnchor;
 
@@ -109,11 +108,7 @@ export class BackfillSync extends (EventEmitter as {new (): BackfillSyncEmitter}
     this.logger = modules.logger;
     // this.metrics = modules.metrics;
 
-    // this.logger.info("Initializing Backfill sync: BackfillV2.constructor.");
-
-    // this.logger.info("Creating BroadcastChannel: BackfillV2.constructor.");
     this.bc = new BroadcastChannel("test_channel");
-    // this.logger.info("Created BroadcastChannel: BackfillV2.constructor.\n", this.bc);
 
     this.opts = opts;
     // this.network.events.on(NetworkEvent.peerConnected, this.addPeer);

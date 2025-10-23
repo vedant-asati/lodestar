@@ -19,8 +19,6 @@ const config = createBeaconConfig(
   workerData.compatibleModules.genesisValidatorsRoot
 );
 
-// TODO: Pass options from main thread for logging
-// TODO: Logging won't be visible in file loggers
 const logger = getNodeLogger(workerData.compatibleModules.loggerOpts);
 
 // Alive and consistency check
@@ -42,8 +40,7 @@ const modules = {
   signal: abortController.signal,
 };
 
-// biome-ignore lint/suspicious/noConsole: jsr test
-console.log("Initializing Backfill sync: BackfillWorker.");
+// logger.info("Initializing Backfill sync: BackfillWorker.");
 
 const backfillclass = await BackfillSync.init(workerData.opts, modules);
 
