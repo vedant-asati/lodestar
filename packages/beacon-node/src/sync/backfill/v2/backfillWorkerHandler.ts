@@ -7,7 +7,8 @@ import {EventEmitter} from "node:events";
 import workerThreads from "node:worker_threads";
 import {StrictEventEmitter} from "strict-event-emitter-types";
 import {ModuleThread, Thread, Worker, spawn} from "@chainsafe/threads";
-import {BeaconConfig} from "@lodestar/config";
+import {BeaconConfig, chainConfigToJson} from "@lodestar/config";
+import {LoggerNode} from "@lodestar/logger/node";
 import {SLOTS_PER_EPOCH} from "@lodestar/params";
 import {BeaconStateAllForks, computeAnchorCheckpoint} from "@lodestar/state-transition";
 import {Root, SignedBeaconBlock, Slot, phase0} from "@lodestar/types";
@@ -19,14 +20,14 @@ import {INetwork, NetworkEvent, NetworkEventData} from "../../../network/index.j
 import {ItTrigger} from "../../../util/itTrigger.js";
 import {PeerIdStr} from "../../../util/peerId.js";
 import {BackfillBlock, BackfillBlockHeader} from "../verify.js";
-import {BackfillWorkerApi} from "./types.ts";
+import {BackfillWorkerApi} from "./types.js";
 
 export type BackfillSyncModules = {
   chain: IBeaconChain;
   db: IBeaconDb;
   network: INetwork;
   config: BeaconConfig;
-  logger: Logger;
+  logger: LoggerNode;
   metrics: Metrics | null;
   anchorState: BeaconStateAllForks;
   wsCheckpoint?: phase0.Checkpoint;
@@ -138,7 +139,7 @@ export class BackfillSyncWorkerHandler extends (EventEmitter as {new (): Backfil
     //   });
   }
 
-  static async init(opts: BackfillSyncOpts): Promise<BackfillSyncWorkerHandler> {
+  static async init(opts: BackfillSyncOpts, modules: BackfillSyncModules): Promise<BackfillSyncWorkerHandler> {
     // biome-ignore lint/suspicious/noConsole: jsr test
     console.log("Initializing Backfill sync: BackfillWorkerHandler.");
     // const {config, anchorState, wsCheckpoint, logger} = modules;
@@ -167,11 +168,35 @@ export class BackfillSyncWorkerHandler extends (EventEmitter as {new (): Backfil
     // const workerData = {
     //   secretMessage,
     // };
-    // const compatibleModules = {
-    //   // modules.
-    // };
+
+    // config: BeaconConfig;
+    // logger: LoggerNode;
+    // anchorState: BeaconStateAllForks;
+    // wsCheckpoint?: phase0.Checkpoint;
+
+    // chain: IBeaconChain; // this.chain.bls, this.chain.getHeadState()
+    // db: IBeaconDb;
+    // network: INetwork;
+    // metrics: Metrics | null;
+
+    // signal: AbortSignal;
+
+    const compatibleModules = {
+      chainConfigJson: chainConfigToJson(modules.config), // compatible
+      genesisValidatorsRoot: modules.config.genesisValidatorsRoot,
+      wsCheckpoint: modules.wsCheckpoint, // compatible
+      // anchorState: modules.anchorState, // not sure
+      anchorSlot: modules.anchorState.latestBlockHeader.slot,
+      anchorCp: computeAnchorCheckpoint(modules.config, modules.anchorState),
+
+      loggerOpts: modules.logger.toOpts(),
+      // db: IBeaconDb; // don't know how to share db connection
+      // network: INetwork; // don't know how to share db connection
+      // metrics: Metrics | null; // ignoring for now
+    };
     const workerData = {
       opts, // compatible
+      compatibleModules,
       // modules,
       // secretMessage, // compatible
       //   syncAnchor,
