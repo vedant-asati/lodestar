@@ -196,20 +196,6 @@ export class PeerManager {
     this.libp2p.services.components.events.addEventListener(Libp2pEvent.connectionOpen, this.onLibp2pPeerConnect);
     this.libp2p.services.components.events.addEventListener(Libp2pEvent.connectionClose, this.onLibp2pPeerDisconnect);
     this.networkEventBus.on(NetworkEvent.reqRespRequest, this.onRequest);
-    // this.bc.onmessage = (msg) => {
-    //   // biome-ignore lint/suspicious/noConsole: testing
-    //   console.log("this.bc.onmessage from peerManager.\n msg.data: ", msg.data);
-    //   // wrong
-    //   // const message = msg?.data?.message as NetworkEventData[NetworkEvent.peerConnected];
-    //   // this.logger.info("this.bc.onmessage: ", {
-    //   //   // biome-ignore lint/style/noNonNullAssertion: testing
-    //   //   event: msg?.data?.event!,
-    //   //   peer: message.peer,
-    //   //   headSlot: message.status.headSlot,
-    //   //   clientAgent: message.clientAgent,
-    //   //   custodyColumnsLength: message.custodyColumns.length,
-    //   // });
-    // };
 
     this.lastStatus = this.statusCache.get();
 

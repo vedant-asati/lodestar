@@ -136,17 +136,14 @@ export class Network implements INetwork {
     // this.events.on(NetworkEvent.peerConnected, this.onPeerConnected);
     // this.events.on(NetworkEvent.peerDisconnected, this.onPeerDisconnected);
     this.bc.onmessage = (event) => {
-      // // biome-ignore lint/suspicious/noConsole: testing
-      // console.log("It works from network.ts", event.data);
+      // this.logger.info("It works from network.ts", event.data);
       switch (event.data.event) {
         case NetworkEvent.peerConnected:
-          // // biome-ignore lint/suspicious/noConsole: testing
-          // console.log("NetworkEvent.peerConnected: ", event?.data?.message?.peer!);
+          this.logger.info("Inside Main Thread. NetworkEvent.peerConnected: ", event?.data?.message?.peer!);
           this.onPeerConnected(event.data.message as NetworkEventData[NetworkEvent.peerConnected]);
           break;
         case NetworkEvent.peerDisconnected:
-          // // biome-ignore lint/suspicious/noConsole: testing
-          // console.log("NetworkEvent.peerDisconnected: ", event?.data?.message?.peer!);
+          this.logger.info("Inside Main Thread. NetworkEvent.peerDisconnected: ", event?.data?.message?.peer!);
           this.onPeerDisconnected(event.data.message as NetworkEventData[NetworkEvent.peerDisconnected]);
           break;
         default:

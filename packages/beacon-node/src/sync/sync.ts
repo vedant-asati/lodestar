@@ -44,8 +44,7 @@ export class BeaconSync implements IBeaconSync {
     this.slotImportTolerance = opts.slotImportTolerance ?? SLOTS_PER_EPOCH;
 
     this.bc = new BroadcastChannel("test_channel");
-    // // biome-ignore lint/suspicious/noConsole: jsr test
-    // console.log("Created BroadcastChannel: sync.constructor.\n", this.bc);
+    // this.logger.info("Created BroadcastChannel: sync.constructor.\n", this.bc.name);
 
     // Subscribe to RangeSync completing a SyncChain and recompute sync state
     if (!opts.disableRangeSync) {
@@ -55,17 +54,20 @@ export class BeaconSync implements IBeaconSync {
       // this.network.events.on(NetworkEvent.peerConnected, this.addPeer);
       // this.network.events.on(NetworkEvent.peerDisconnected, this.removePeer);
       this.bc.onmessage = (event) => {
-        // // biome-ignore lint/suspicious/noConsole: testing
-        // console.log("JSR. It works from sync.ts", event.data);
+        // this.logger.info("It works from sync.ts", event.data);
         switch (event.data.event) {
           case NetworkEvent.peerConnected:
-            // // biome-ignore lint/suspicious/noConsole: testing
-            // console.log("JSR. NetworkEvent.peerConnected: ", event?.data?.message?.peer!);
+            this.logger.info(
+              "Inside Main Thread. BeaconSync: NetworkEvent.peerConnected: ",
+              event?.data?.message?.peer!
+            );
             this.addPeer(event.data.message as NetworkEventData[NetworkEvent.peerConnected]);
             break;
           case NetworkEvent.peerDisconnected:
-            // // biome-ignore lint/suspicious/noConsole: testing
-            // console.log("JSR. NetworkEvent.peerDisconnected: ", event?.data?.message?.peer!);
+            this.logger.info(
+              "Inside Main Thread. BeaconSync: NetworkEvent.peerDisconnected: ",
+              event?.data?.message?.peer!
+            );
             this.removePeer(event.data.message as NetworkEventData[NetworkEvent.peerDisconnected]);
             break;
           default:

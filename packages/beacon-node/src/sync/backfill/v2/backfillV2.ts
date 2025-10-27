@@ -117,11 +117,11 @@ export class BackfillSync extends (EventEmitter as {new (): BackfillSyncEmitter}
       // this.logger.info("It works from backfillV2.ts", event.data);
       switch (event.data.event) {
         case NetworkEvent.peerConnected:
-          // this.logger.info("Inside Backfill Thread. NetworkEvent.peerConnected: ", event?.data?.message?.peer!);
+          this.logger.info("Inside Backfill Thread. NetworkEvent.peerConnected: ", event?.data?.message?.peer!);
           this.addPeer(event.data.message as NetworkEventData[NetworkEvent.peerConnected]);
           break;
         case NetworkEvent.peerDisconnected:
-          // this.logger.info("Inside Backfill Thread. NetworkEvent.peerDisconnected: ", event?.data?.message?.peer!);
+          this.logger.info("Inside Backfill Thread. NetworkEvent.peerDisconnected: ", event?.data?.message?.peer!);
           this.removePeer(event.data.message as NetworkEventData[NetworkEvent.peerDisconnected]);
           break;
         default:
