@@ -131,7 +131,7 @@ export class BackfillSync {
   private status: BackfillSyncStatus = BackfillSyncStatus.pending;
   private signal: AbortSignal;
 
-  private readonly BACKFILL_BATCH_SIZE = 32; // Todo: Discuss if we need some flexibility for this
+  private readonly BACKFILL_BATCH_SIZE = SLOTS_PER_EPOCH; // 32; // Todo: Discuss if we need some flexibility for this
   private readonly MAX_RETRY_ATTEMPTS_FOR_EMPTY_RESPONSE = 3;
   private currentAttempt = 1;
 
@@ -306,6 +306,7 @@ export class BackfillSync {
         this.logger.info("Backfill sync success. Reached Genesis slot.");
         this.status = BackfillSyncStatus.completed;
         this.processor.end();
+        continue;
       }
 
       const head = this.chain.forkChoice.getHead();
@@ -313,6 +314,7 @@ export class BackfillSync {
         this.logger.info("Backfill sync success. Reached minimum backfill blocks serving window.");
         this.status = BackfillSyncStatus.completed;
         this.processor.end();
+        continue;
       }
 
       // handle previously filled ranges
@@ -463,10 +465,8 @@ export class BackfillSync {
         //   }
         // }
       } finally {
-        // if (this.status !== BackfillSyncStatus.aborted) this.processor.trigger(); ?
-        // sleep for sometime
-        // await sleep(5000, this.signal);
-        await sleep(5000, this.signal);
+        this.processor.trigger();
+        await sleep(2000, this.signal);
       }
     }
 
@@ -639,7 +639,7 @@ export class BackfillSync {
         peerScore: goodPeerMetaData?.score,
         peerLastSlotRequested: goodPeerMetaData?.lastSlotRequested,
         peerFailedRequests: goodPeerMetaData?.failedRequests,
-        avgResTime: goodPeerMetaData?.avgResTime,
+        avgResTime: goodPeerMetaData?.avgResTime + "ms",
       });
 
       // Log block details
@@ -1055,22 +1055,36 @@ export class BackfillSync {
         // DEBUG_CODE
         continue;
       }
-      // if lastSlotRequest is very recent
-      if (
-        meta?.lastSlotRequested &&
-        meta.lastSlotRequested !== 0 &&
-        Math.abs(meta.lastSlotRequested - anchorSlot) < 2 * this.BACKFILL_BATCH_SIZE // this.opts.backfillBatchSize
-      ) {
-        // DEBUG_CODE
-        // this.logger.info("Skipping recently used peer", {
-        //   peerId,
-        //   lastSlotRequested: meta.lastSlotRequested,
-        //   anchorSlot,
-        // });
-        // DEBUG_CODE
-        continue;
-      }
       eligiblePeers.push(peerId);
+    }
+
+    // Todo: Implement score based selection for simplicity
+    // Skip recently used peers only if we have multiple eligible peers
+    // This ensures we don't skip the only eligible peer while still distributing load
+    if (eligiblePeers.length > 1) {
+      const filteredPeers = eligiblePeers.filter((peerId) => {
+        const meta = this.peersMeta.get(peerId);
+        if (
+          meta?.lastSlotRequested &&
+          meta.lastSlotRequested !== 0 &&
+          Math.abs(meta.lastSlotRequested - anchorSlot) < 2 * this.BACKFILL_BATCH_SIZE
+        ) {
+          // DEBUG_CODE
+          // this.logger.info("Skipping recently used peer", {
+          //   peerId,
+          //   lastSlotRequested: meta.lastSlotRequested,
+          //   anchorSlot,
+          // });
+          // DEBUG_CODE
+          return false;
+        }
+        return true;
+      });
+      // Only use filtered list if it's not empty (avoid filtering out all peers)
+      if (filteredPeers.length > 0) {
+        eligiblePeers.length = 0;
+        eligiblePeers.push(...filteredPeers);
+      }
     }
 
     if (eligiblePeers.length === 0) {
