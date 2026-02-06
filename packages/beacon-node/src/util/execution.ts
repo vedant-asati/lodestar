@@ -31,6 +31,7 @@ export enum DataColumnEngineResult {
   Failed = "failed",
 }
 
+// @vedant-asati note: this seems unrelated to cols requests
 export async function getBlobSidecarsFromExecution(
   config: ChainForkConfig,
   executionEngine: IExecutionEngine,
@@ -173,6 +174,7 @@ export async function getDataColumnSidecarsFromExecution(
   }
 
   let dataColumnSidecars: fulu.DataColumnSidecars;
+  const compTimer = metrics?.peerDas.dataColumnSidecarComputationTime.startTimer();
   const cellsAndProofs = await getCellsAndProofs(blobs);
   if (blockInput.hasBlock()) {
     dataColumnSidecars = getDataColumnSidecarsFromBlock(
@@ -184,6 +186,7 @@ export async function getDataColumnSidecarsFromExecution(
     const firstSidecar = blockInput.getAllColumns()[0];
     dataColumnSidecars = getDataColumnSidecarsFromColumnSidecar(firstSidecar, cellsAndProofs);
   }
+  compTimer?.();
 
   // Publish columns if and only if subscribed to them
   const previouslyMissingColumns = blockInput.getMissingSampledColumnMeta().missing;
@@ -191,6 +194,7 @@ export async function getDataColumnSidecarsFromExecution(
 
   // for columns that we already seen, it will be ignored through `ignoreDuplicatePublishError` gossip option
   emitter.emit(ChainEvent.publishDataColumns, sampledColumns);
+  // Todo: Can we record dataColumns.sentPeersPerSubnet metric somehow
 
   // add all sampled columns to the block input, even if we didn't sample them
   const seenTimestampSec = Date.now() / 1000;
@@ -198,6 +202,8 @@ export async function getDataColumnSidecarsFromExecution(
     if (blockInput.hasColumn(columnSidecar.index)) {
       // columns may have been added while waiting
       // TODO(fulu): add metrics for this condition
+      // beacon_data_column_sidecar_already_added_by_gossip
+      metrics?.dataColumns.alreadyAdded.inc();
       continue;
     }
 

@@ -828,19 +828,24 @@ export function createLodestarMetrics(
       }),
     },
     recoverDataColumnSidecars: {
-      recoverTime: register.histogram({
-        name: "lodestar_recover_data_column_sidecar_recover_time_seconds",
-        help: "Time elapsed to recover data column sidecar",
-        buckets: [0.5, 1.0, 1.5, 2],
-      }),
+      // duplicate of peerDas.dataColumnsReconstructionTime
+      // recoverTime: register.histogram({
+      //   name: "lodestar_recover_data_column_sidecar_recover_time_seconds",
+      //   help: "Time elapsed to recover data column sidecar",
+      //   buckets: [0.5, 1.0, 1.5, 2],
+      // }),
+      // done
       custodyBeforeReconstruction: register.gauge({
         name: "lodestar_data_columns_in_custody_before_reconstruction",
         help: "Number of data columns in custody before reconstruction",
       }),
-      numberOfColumnsRecovered: register.gauge({
-        name: "lodestar_recover_data_column_sidecar_recovered_columns_total",
-        help: "Total number of columns that were recovered",
-      }),
+      // duplicate of peerDas.reconstructedColumns
+      // numberOfColumnsRecovered: register.gauge({
+      //   name: "lodestar_recover_data_column_sidecar_recovered_columns_total",
+      //   help: "Total number of columns that were recovered",
+      // }),
+      // done
+      // can we merge with peerDAS.reconstructedColumns
       reconstructionResult: register.counter<{result: DataColumnReconstructionCode}>({
         name: "lodestar_data_column_sidecars_reconstruction_result",
         help: "Data column sidecars reconstruction result",
@@ -848,27 +853,38 @@ export function createLodestarMetrics(
       }),
     },
     dataColumns: {
+      // new: partially used
+      // better name: skip adding?
+      alreadyAdded: register.counter({
+        name: "beacon_data_column_sidecar_already_added",
+        help: "Already added by other source (gossip) while waiting",
+      }),
+      // recovery, engine, api
       bySource: register.gauge<{source: BlockInputSource}>({
         name: "lodestar_data_columns_by_source",
         help: "Number of received data columns by source",
         labelNames: ["source"],
       }),
+      // used in gossip handler
       elapsedTimeTillReceived: register.histogram<{receivedOrder: number}>({
         name: "lodestar_data_column_elapsed_time_till_received_seconds",
         help: "Time elapsed between block slot time and the time data column received",
         labelNames: ["receivedOrder"],
         buckets: [1, 2, 3, 4, 6, 12],
       }),
+      // 1/3 places implemented, related to ChainEvent.publishDataColumns
       sentPeersPerSubnet: register.histogram({
         name: "lodestar_data_column_sent_peers_per_subnet",
         help: "Number of peers node sent per subnet when publishing DataColumnSidecars",
         // given TARGET_GROUP_PEERS_PER_SUBNET = 4, we expect sending to 4 peers per subnet
         buckets: [1, 2, 3, 4],
       }),
+      // only when explicitly searched in the db, not while gossip recvd
       missingCustodyColumns: register.counter({
         name: "lodestar_data_columns_missing_custody_columns_count",
         help: "Total number of missing columns that should be in the database but were not when requested",
       }),
+      // done: engine
       dataColumnEngineResult: register.counter<{result: DataColumnEngineResult}>({
         name: "lodestar_data_column_engine_result_total",
         help: "The total result of sending data column to execution layer",
@@ -903,11 +919,13 @@ export function createLodestarMetrics(
         help: "Total number of imported blobs by source",
         labelNames: ["blobsSource"],
       }),
-      columnsBySource: register.gauge<{source: BlockInputSource}>({
-        name: "lodestar_import_columns_by_source_total",
-        help: "Total number of imported columns (sampled columns) by source",
-        labelNames: ["source"],
-      }),
+      // remove one
+      // duplicate of lodestar_data_columns_by_source
+      // columnsBySource: register.gauge<{source: BlockInputSource}>({
+      //   name: "lodestar_import_columns_by_source_total",
+      //   help: "Total number of imported columns (sampled columns) by source",
+      //   labelNames: ["source"],
+      // }),
       notOverrideFcuReason: register.counter<{reason: NotReorgedReason}>({
         name: "lodestar_import_block_not_override_fcu_reason_total",
         help: "Reason why the fcu call is not suppressed during block import",
@@ -1457,6 +1475,8 @@ export function createLodestarMetrics(
           help: "Total number of duplicate blobs that pass validation and attempt to be cached but are known",
           labelNames: ["source"],
         }),
+        // do we need to adjust position?
+        // more related to blockInput than cols flow
         duplicateColumnCount: register.gauge<{source: BlockInputSource}>({
           name: "lodestar_seen_block_input_cache_duplicate_column_count",
           help: "Total number of duplicate columns that pass validation and attempt to be cached but are known",

@@ -671,9 +671,18 @@ export function getBeaconBlockApi({
           }
 
           const indicesToReconstruct = indices ?? Array.from({length: blobCount}, (_, i) => i);
+
+          // is it alright here?
+          // also do we need to include computation also?
+          const timer = metrics?.peerDas.dataColumnsReconstructionTime.startTimer();
           const blobs = await reconstructBlobs(dataColumnSidecars, indicesToReconstruct);
+          timer?.();
+          metrics?.peerDas.reconstructedColumns.inc(indicesToReconstruct.length);
+
           const signedBlockHeader = signedBlockToSignedHeader(config, block);
 
+          // is it correct?
+          const compTimer = metrics?.peerDas.dataColumnSidecarComputationTime.startTimer();
           data = await Promise.all(
             indicesToReconstruct.map(async (index, i) => {
               // Reconstruct blob sidecar from blob
@@ -688,6 +697,7 @@ export function getBeaconBlockApi({
               return {index, blob, kzgCommitment, kzgProof, signedBlockHeader, kzgCommitmentInclusionProof};
             })
           );
+          compTimer?.();
         } else {
           data = [];
         }
@@ -766,7 +776,11 @@ export function getBeaconBlockApi({
             indicesToReconstruct = Array.from({length: blobCount}, (_, i) => i);
           }
 
+          // is it alright here?
+          const timer = metrics?.peerDas.dataColumnsReconstructionTime.startTimer();
           blobs = await reconstructBlobs(dataColumnSidecars, indicesToReconstruct);
+          timer?.();
+          metrics?.peerDas.reconstructedColumns.inc(indicesToReconstruct.length);
         } else {
           blobs = [];
         }

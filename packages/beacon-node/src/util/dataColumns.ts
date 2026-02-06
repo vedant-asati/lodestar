@@ -22,6 +22,7 @@ import {
   ssz,
 } from "@lodestar/types";
 import {bytesToBigInt} from "@lodestar/utils";
+import {clock} from "../../test/utils/blocksAndData.ts";
 import {BlockInputColumns} from "../chain/blocks/blockInput/blockInput.js";
 import {BlockInputSource} from "../chain/blocks/blockInput/types.js";
 import {ChainEvent, ChainEventEmitter} from "../chain/emitter.js";
@@ -376,16 +377,33 @@ export async function recoverDataColumnSidecars(
     partialSidecars.set(columnSidecar.index, columnSidecar);
   }
 
-  const timer = metrics?.recoverDataColumnSidecars.recoverTime.startTimer();
+  // should it be here or wrap this fn from the caller
+  // duplicate of peerDas.dataColumnsReconstructionTime
+  // Todo: consider removing one
+  // 4mo ago by matt
+  // const timer = metrics?.recoverDataColumnSidecars.recoverTime.startTimer();
+  // 6mo ago by katya
+  const timer = metrics?.peerDas.dataColumnsReconstructionTime.startTimer();
+  // where exactly?
   // if this function throws, we catch at the consumer side
   const fullSidecars = await dataColumnMatrixRecovery(partialSidecars).catch(() => null);
   timer?.();
+
   if (fullSidecars == null) {
     return DataColumnReconstructionCode.NullReturned;
   }
+  // const firstDataColumn = fullSidecars.values().next().value;
+  // if (firstDataColumn == null) {
+  //   // should not happen because we checked the size of the cache before this
+  //   throw new Error("No data column found in cache to recover from");
+  // }
+  // const slot = firstDataColumn.signedBlockHeader.message.slot;
+  // const secFromSlot = clock.secFromSlot(slot);
+  // metrics?.recoverDataColumnSidecars.elapsedTimeTillReconstructed.observe(secFromSlot);
 
   if (blockInput.getAllColumns().length === NUMBER_OF_COLUMNS) {
     // either gossip or getBlobsV2 resolved availability while we were recovering
+    metrics?.dataColumns.alreadyAdded.inc();
     return DataColumnReconstructionCode.SuccessLate;
   }
 
@@ -409,8 +427,12 @@ export async function recoverDataColumnSidecars(
       sidecarsToPublish.push(columnSidecar);
     }
   }
+  // should it be here or at the caller
+  // also duplicate wrt recoverDataColumnSidecars.reconstructionResult, can we merge?
+  metrics?.peerDas.reconstructedColumns.inc(sidecarsToPublish.length);
+  metrics?.dataColumns.bySource.inc({source: BlockInputSource.recovery}, sidecarsToPublish.length);
   emitter.emit(ChainEvent.publishDataColumns, sidecarsToPublish);
-
+  // Todo: Can we record dataColumns.sentPeersPerSubnet metric somehow
   return DataColumnReconstructionCode.SuccessResolved;
 }
 
